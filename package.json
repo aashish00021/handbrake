@@ -9,7 +9,8 @@
   "scripts": {
     "test": "node --test test.js",
     "e2e": "node --test e2e.js",
-    "demo": "python3 -m http.server 8787 --bind 127.0.0.1 --directory demo"
+    "demo": "python3 -m http.server 8787 --bind 127.0.0.1 --directory demo",
+    "eval": "node --env-file=.env eval/run.js"
   },
   "engines": {
     "node": ">=20"

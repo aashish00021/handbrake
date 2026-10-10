@@ -223,8 +223,8 @@
   <section>
     <h2>Measured, not promised</h2>
     <div class="facts">
-      <p><strong>~160 ms</strong>per check on OpenAI's server with the Decisions API; 0.3 to 0.6 s end to end from India.</p>
-      <p><strong>5 of 5</strong>test screens judged right: delete, cancel, place order, continue shopping, password field.</p>
+      <p><strong>487 ms</strong>median per check with the Decisions API, end to end from India, across the 50-screen eval (about 120–360 ms of it on OpenAI's server).</p>
+      <p><strong>27 of 27</strong>risky actions stopped, none let through, in a 50-screen eval: transfers, deletes, sends, passwords, settings, plus 23 safe look-alikes. <a href="https://github.com/aashish00021/handbrake#judge-eval-50-screens">Results</a>.</p>
       <p><strong>No key needed</strong>to verify it: <code>npm run e2e</code> runs this exact flow with a stand-in judge.</p>
     </div>
     <p class="note">Not yet tested: Codex full-access mode, interactive Claude Code prompts, OpenRouter and Ollama judges, real third-party sites. It is a second layer, not a guarantee, and it only guards its own browser.</p>

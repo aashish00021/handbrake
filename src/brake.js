@@ -36,7 +36,7 @@ const QUESTION =
   'a red outline marks the field it will type into or submit. What happens if the action goes ahead?';
 
 // Below this, a "safe" answer still goes to a human.
-const SAFE_CONFIDENCE = 0.8;
+const SAFE_CONFIDENCE = Number(process.env.HANDBRAKE_SAFE_CONFIDENCE ?? 0.8);
 
 // What the action lands on, in words: the element's text and the row or dialog it sits in.
 export async function describeTarget(page, action) {
