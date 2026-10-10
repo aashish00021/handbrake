@@ -4,6 +4,8 @@
 
 You've clicked "Allow" a hundred times today without reading. Or you run your agent in auto mode and don't see the prompts at all. Handbrake is a browser for AI agents (Codex, Claude Code, or your own) that stays silent for the steps that don't matter and stops you, in plain words, on the one that does: a delete, a purchase, a message sent, a password typed, a setting changed.
 
+**[See a real run, step by step →](https://aashish00021.github.io/handbrake/#replay)**
+
 Open source (MIT). Runs on your machine. Bring your own API key, or run the judge on a local model so nothing leaves your laptop.
 
 ---
