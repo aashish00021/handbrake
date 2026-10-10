@@ -56,9 +56,9 @@ export async function markedScreenshot(page, action) {
     }
     document.body.appendChild(el);
   }, { x: action.x, y: action.y });
-  const png = await page.screenshot();
+  const img = await page.screenshot({ type: 'jpeg', quality: 80 }); // smaller upload, same verdicts
   await page.evaluate(() => document.getElementById('__handbrake_marker')?.remove());
-  return png;
+  return img;
 }
 
 // Fails closed: any error becomes an "unsure", which asks a human.
@@ -73,7 +73,7 @@ export async function judge(png, action) {
           role: 'user',
           content: [
             { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}` },
-            { type: 'input_image', image_url: `data:image/png;base64,${png.toString('base64')}` },
+            { type: 'input_image', image_url: `data:image/jpeg;base64,${png.toString('base64')}` },
           ],
         }],
         questions: [{
@@ -105,7 +105,7 @@ export async function brake(page, action, { policy = DEFAULT_POLICY, approve, lo
   if (verdict === 'ask') verdict = (await approve({ action, label, reason, png })) ? 'approved' : 'denied';
 
   await mkdir(logDir, { recursive: true });
-  const shot = `${started}.png`;
+  const shot = `${started}.jpg`;
   await writeFile(join(logDir, shot), png);
   await appendFile(join(logDir, 'log.jsonl'),
     JSON.stringify({ at: new Date(started).toISOString(), url: page.url(), action, label, reason, verdict, ms, shot }) + '\n');

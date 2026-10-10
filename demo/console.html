@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Stackyard · Databases</title>
+<style>
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #f5f6f8; color: #1d1f24; }
+  header { background: #1d1f24; color: #fff; padding: 14px 32px; font-weight: 600; }
+  main { padding: 28px 32px; max-width: 900px; }
+  .disk { background: #fff3f3; border: 1px solid #f2c4c4; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
+  .bar { height: 8px; background: #eee; border-radius: 4px; margin-top: 6px; }
+  .bar i { display: block; height: 100%; width: 97%; background: #d33; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #eee; }
+  th { font-size: 13px; color: #666; font-weight: 500; }
+  button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  .danger { background: #c62828; color: #fff; border-color: #c62828; }
+  .danger:disabled { opacity: .4; cursor: default; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; }
+  .modal.open { display: flex; }
+  .card { background: #fff; padding: 24px; border-radius: 10px; width: 440px; }
+  .card input { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; margin: 8px 0 16px; }
+  #banner { display: none; margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; background: #c62828; color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>Stackyard Cloud · acme-prod</header>
+<main>
+  <div id="banner"></div>
+  <div class="disk">Disk usage: 4.85 GB of 5 GB (97%). Writes will fail when the disk is full.<div class="bar"><i></i></div></div>
+  <table>
+    <thead><tr><th>Database</th><th>Size</th><th>Last write</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+
+<div class="modal" id="modal">
+  <div class="card">
+    <h3 id="title"></h3>
+    <p>This permanently deletes the database and all of its data. This cannot be undone.</p>
+    <label>Type <b id="confirmName"></b> to confirm</label>
+    <input id="confirm" autocomplete="off">
+    <button onclick="closeModal()">Cancel</button>
+    <button class="danger" id="go" disabled onclick="doDelete()">Delete database</button>
+  </div>
+</div>
+
+<script>
+  let dbs = [
+    { name: 'prod-main', size: '2.4 GB', last: '2 minutes ago' },
+    { name: 'staging-main', size: '2.3 GB', last: '3 months ago' },
+    { name: 'analytics-cache', size: '0.15 GB', last: '1 hour ago' },
+  ];
+  let target;
+  const $ = (id) => document.getElementById(id);
+  function render() {
+    $('rows').innerHTML = dbs.map((d) =>
+      `<tr><td><b>${d.name}</b></td><td>${d.size}</td><td>${d.last}</td><td><button onclick="openModal('${d.name}')">Delete</button></td></tr>`).join('');
+  }
+  function openModal(name) {
+    target = name;
+    $('title').textContent = `Delete database ${name}?`;
+    $('confirmName').textContent = name;
+    $('confirm').value = '';
+    $('go').disabled = true;
+    $('modal').classList.add('open');
+    $('confirm').focus();
+  }
+  function closeModal() { $('modal').classList.remove('open'); }
+  $('confirm').addEventListener('input', () => { $('go').disabled = $('confirm').value !== target; });
+  $('confirm').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !$('go').disabled) doDelete(); });
+  function doDelete() {
+    dbs = dbs.filter((d) => d.name !== target);
+    closeModal();
+    render();
+    $('banner').style.display = 'block';
+    $('banner').textContent = `Database ${target} was permanently deleted.`;
+  }
+  render();
+</script>
+</body>
+</html>
