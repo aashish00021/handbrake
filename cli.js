@@ -20,8 +20,8 @@ const policy = { ...DEFAULT_POLICY, ...JSON.parse(await readFile(values.policy, 
 
 // The human answers here, in the terminal: a channel the agent can't reach.
 const rl = createInterface({ input: process.stdin, output: process.stdout });
-const approve = async ({ action, label, reason }) => {
-  const answer = await rl.question(`\n\x1b[41m HANDBRAKE \x1b[0m ${label.toUpperCase()}: ${reason}\n  action: ${JSON.stringify(action)}\n  allow? [y/N] `);
+const approve = async ({ action, label, reason, target }) => {
+  const answer = await rl.question(`\n\x1b[41m HANDBRAKE \x1b[0m ${label.toUpperCase()} (${reason})\n  the agent wants to: ${target}\n  allow? [y/N] `);
   return /^y(es)?$/i.test(answer.trim());
 };
 

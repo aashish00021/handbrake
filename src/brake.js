@@ -38,6 +38,20 @@ const QUESTION =
 // Below this, a "safe" answer still goes to a human.
 const SAFE_CONFIDENCE = 0.8;
 
+// What the action lands on, in words: the element's text and the row or dialog it sits in.
+export async function describeTarget(page, action) {
+  return page.evaluate(({ x, y, type, text }) => {
+    const squash = (t, n) => (t ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+    const hit = x != null ? document.elementFromPoint(x, y) : document.activeElement;
+    if (!hit || hit === document.body) return type === 'type' ? `typing "${squash(text, 40)}"` : 'nothing in particular';
+    const el = hit.closest('a, button, input, select, textarea, [role=button], [onclick]') ?? hit;
+    const name = squash(el.innerText || el.value || el.placeholder || el.getAttribute('aria-label'), 60);
+    const where = squash(el.closest('tr, li, form, dialog, [role=dialog], .modal, .card')?.innerText, 120);
+    const what = type === 'type' ? `typing "${squash(text, 40)}" into ${el.tagName.toLowerCase()} "${name}"` : `${type} on ${el.tagName.toLowerCase()} "${name}"`;
+    return where && where !== name ? `${what} in "${where}"` : what;
+  }, { x: action.x, y: action.y, type: action.type, text: action.text });
+}
+
 // Draw the marker on the live page, screenshot, remove it.
 export async function markedScreenshot(page, action) {
   await page.evaluate(({ x, y }) => {
@@ -62,7 +76,7 @@ export async function markedScreenshot(page, action) {
 }
 
 // Fails closed: any error becomes an "unsure", which asks a human.
-export async function judge(png, action) {
+export async function judge(png, action, target = '') {
   try {
     const res = await fetch('https://api.openai.com/v1/decisions', {
       method: 'POST',
@@ -72,7 +86,7 @@ export async function judge(png, action) {
         input: [{
           role: 'user',
           content: [
-            { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}` },
+            { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}\nIt lands on: ${target}` },
             { type: 'input_image', image_url: `data:image/jpeg;base64,${png.toString('base64')}` },
           ],
         }],
@@ -98,17 +112,18 @@ export async function judge(png, action) {
 // Returns true if the action may run. Every checked action is logged with its screenshot.
 export async function brake(page, action, { policy = DEFAULT_POLICY, approve, logDir = 'handbrake-log' } = {}) {
   const started = Date.now();
+  const target = await describeTarget(page, action);
   const png = await markedScreenshot(page, action);
-  const { label, reason } = await judge(png, action);
+  const { label, reason } = await judge(png, action, target);
   const ms = Date.now() - started;
   let verdict = verdictFor(label, policy);
-  if (verdict === 'ask') verdict = (await approve({ action, label, reason, png })) ? 'approved' : 'denied';
+  if (verdict === 'ask') verdict = (await approve({ action, label, reason, target, png })) ? 'approved' : 'denied';
 
   await mkdir(logDir, { recursive: true });
   const shot = `${started}.jpg`;
   await writeFile(join(logDir, shot), png);
   await appendFile(join(logDir, 'log.jsonl'),
-    JSON.stringify({ at: new Date(started).toISOString(), url: page.url(), action, label, reason, verdict, ms, shot }) + '\n');
+    JSON.stringify({ at: new Date(started).toISOString(), url: page.url(), action, target, label, reason, verdict, ms, shot }) + '\n');
 
   return verdict === 'allow' || verdict === 'approved';
 }

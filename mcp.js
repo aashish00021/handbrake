@@ -29,10 +29,10 @@ async function getPage() {
 
 // The human answers in the client's own prompt. No answer, a "no", or a client
 // that can't ask: all block.
-async function approve({ label, reason }) {
+async function approve({ label, reason, target }) {
   try {
     const res = await server.server.elicitInput({
-      message: `HANDBRAKE: the agent is about to do something that looks like ${label.toUpperCase()} (${reason}). Allow it?`,
+      message: `HANDBRAKE · ${label.toUpperCase()} (${reason})\nThe agent wants to: ${target}\nAllow it?`,
       requestedSchema: { type: 'object', properties: { allow: { type: 'boolean', title: 'Allow this action' } }, required: ['allow'] },
     });
     return res.action === 'accept' && res.content?.allow === true;
