@@ -1,13 +1,15 @@
 {
   "name": "handbrake-agent",
   "version": "0.1.0",
-  "description": "A per-action brake for computer-use agents: risky clicks wait for a human.",
+  "description": "You approve agent actions on autopilot. Handbrake catches the one that matters.",
   "type": "module",
   "bin": {
     "handbrake": "cli.js"
   },
   "scripts": {
-    "test": "node --test test.js"
+    "test": "node --test test.js",
+    "e2e": "node --test e2e.js",
+    "demo": "python3 -m http.server 8787 --bind 127.0.0.1 --directory demo"
   },
   "engines": {
     "node": ">=20"
