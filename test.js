@@ -36,6 +36,7 @@ test('judge fails closed and distrusts a shaky "safe"', async () => {
   assert.equal((await judge(png, {})).label, 'safe');
   reply(choice('safe', 0.6));
   assert.equal((await judge(png, {})).label, 'unsure');
+  assert.equal((await judge(png, { type: 'type', text: 'prod-main' })).label, 'safe');
   reply({}, false);
   assert.equal((await judge(png, {})).label, 'unsure');
   reply({ answers: [{ type: 'refusal' }] });

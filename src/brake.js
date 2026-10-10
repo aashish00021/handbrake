@@ -45,11 +45,24 @@ export async function describeTarget(page, action) {
     const hit = x != null ? document.elementFromPoint(x, y) : document.activeElement;
     if (!hit || hit === document.body) return type === 'type' ? `typing "${squash(text, 40)}"` : 'nothing in particular';
     const el = hit.closest('a, button, input, select, textarea, [role=button], [onclick]') ?? hit;
-    const name = squash(el.innerText || el.value || el.placeholder || el.getAttribute('aria-label'), 60);
-    const where = squash(el.closest('tr, li, form, dialog, [role=dialog], .modal, .card')?.innerText.replace(el.innerText ?? '', ''), 120);
+    const name = squash(el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || el.labels?.[0]?.innerText || el.previousElementSibling?.innerText, 60) || 'unnamed';
+    let where = squash(el.closest('tr, li, form, dialog, [role=dialog], .modal, .card')?.innerText, 400);
+    if (name && where.endsWith(name)) where = where.slice(0, -name.length).trim(); // the button's own label adds nothing
+    where = where.slice(0, 120);
     const what = type === 'type' ? `typing "${squash(text, 40)}" into ${el.tagName.toLowerCase()} "${name}"` : `${type} on ${el.tagName.toLowerCase()} "${name}"`;
     return where && where !== name ? `${what} in "${where}"` : what;
   }, { x: action.x, y: action.y, type: action.type, text: action.text });
+}
+
+// A click that only puts the cursor in a text field changes nothing; what gets typed is checked later.
+export async function focusesTextField(page, action) {
+  if (action.type !== 'click' || action.x == null) return false;
+  return page.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return false;
+    if (el.isContentEditable || el.tagName === 'TEXTAREA') return true;
+    return el.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel', 'number', 'password', ''].includes(el.getAttribute('type') ?? '');
+  }, { x: action.x, y: action.y });
 }
 
 // Draw the marker on the live page, screenshot, remove it.
@@ -102,7 +115,8 @@ export async function judge(png, action, target = '') {
     const answer = (await res.json()).answers?.[0];
     if (answer?.type !== 'choice') return { label: 'unsure', reason: `judge gave no choice (${answer?.type})` };
     const p = answer.probabilities?.find((x) => x.value === answer.choice)?.probability ?? answer.confidence ?? 0;
-    const label = answer.choice === 'safe' && p < SAFE_CONFIDENCE ? 'unsure' : answer.choice;
+    const shaky = answer.choice === 'safe' && p < SAFE_CONFIDENCE && action.type !== 'type'; // typing commits nothing by itself
+    const label = shaky ? 'unsure' : answer.choice;
     return { label, reason: `${Math.round(p * 100)}% ${answer.choice}` };
   } catch (err) {
     return { label: 'unsure', reason: `judge unreachable: ${err.message}` };
@@ -111,6 +125,7 @@ export async function judge(png, action, target = '') {
 
 // Returns true if the action may run. Every checked action is logged with its screenshot.
 export async function brake(page, action, { policy = DEFAULT_POLICY, approve, logDir = 'handbrake-log' } = {}) {
+  if (await focusesTextField(page, action)) return true;
   const started = Date.now();
   const target = await describeTarget(page, action);
   const png = await markedScreenshot(page, action);
