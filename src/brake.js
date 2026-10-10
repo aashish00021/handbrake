@@ -88,36 +88,69 @@ export async function markedScreenshot(page, action) {
   return img;
 }
 
+// OpenAI's Decisions API: fast, and gives a probability per choice.
+async function askDecisions(img, action, target) {
+  const res = await fetch('https://api.openai.com/v1/decisions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-6-luna',
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}\nIt lands on: ${target}` },
+          { type: 'input_image', image_url: `data:image/jpeg;base64,${img.toString('base64')}` },
+        ],
+      }],
+      questions: [{
+        type: 'choice',
+        name: 'outcome',
+        instructions: QUESTION,
+        choices: Object.entries(CHOICES).map(([value, description]) => ({ value, description })),
+      }],
+    }),
+  });
+  if (!res.ok) {
+    const hint = res.status === 403 || res.status === 404 ? ' (no Decisions API access? set HANDBRAKE_JUDGE=chat)' : '';
+    return { label: 'unsure', reason: `judge error ${res.status}${hint}: ${(await res.text()).slice(0, 200)}` };
+  }
+  const answer = (await res.json()).answers?.[0];
+  if (answer?.type !== 'choice') return { label: 'unsure', reason: `judge gave no choice (${answer?.type})` };
+  const p = answer.probabilities?.find((x) => x.value === answer.choice)?.probability ?? answer.confidence ?? 0;
+  const shaky = answer.choice === 'safe' && p < SAFE_CONFIDENCE && action.type !== 'type'; // typing commits nothing by itself
+  return { label: shaky ? 'unsure' : answer.choice, reason: `${Math.round(p * 100)}% ${answer.choice}` };
+}
+
+// Any OpenAI-compatible chat endpoint with a vision model: OpenAI, OpenRouter, Azure, a local Ollama...
+// ponytail: one-word answer, no probabilities, so a shaky "safe" can't be caught here
+async function askChat(img, action, target) {
+  const base = process.env.HANDBRAKE_JUDGE_BASE_URL ?? 'https://api.openai.com/v1';
+  const model = process.env.HANDBRAKE_JUDGE_MODEL ?? 'gpt-6.1-sol';
+  const choices = Object.entries(CHOICES).map(([value, description]) => `${value}: ${description}`).join('\n');
+  const res = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.HANDBRAKE_JUDGE_KEY ?? process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: `${QUESTION}\nPending action: ${JSON.stringify(action)}\nIt lands on: ${target}\n\n${choices}\n\nAnswer with exactly one word: ${Object.keys(CHOICES).join(', ')}.` },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${img.toString('base64')}` } },
+        ],
+      }],
+    }),
+  });
+  if (!res.ok) return { label: 'unsure', reason: `judge error ${res.status}: ${(await res.text()).slice(0, 200)}` };
+  const said = ((await res.json()).choices?.[0]?.message?.content ?? '').toLowerCase();
+  const word = Object.keys(CHOICES).find((c) => new RegExp(`\\b${c}\\b`).test(said));
+  return word ? { label: word, reason: `${word} (${model})` } : { label: 'unsure', reason: `judge said "${said.slice(0, 60)}"` };
+}
+
 // Fails closed: any error becomes an "unsure", which asks a human.
-export async function judge(png, action, target = '') {
+export async function judge(img, action, target = '') {
   try {
-    const res = await fetch('https://api.openai.com/v1/decisions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-6-luna',
-        input: [{
-          role: 'user',
-          content: [
-            { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}\nIt lands on: ${target}` },
-            { type: 'input_image', image_url: `data:image/jpeg;base64,${png.toString('base64')}` },
-          ],
-        }],
-        questions: [{
-          type: 'choice',
-          name: 'outcome',
-          instructions: QUESTION,
-          choices: Object.entries(CHOICES).map(([value, description]) => ({ value, description })),
-        }],
-      }),
-    });
-    if (!res.ok) return { label: 'unsure', reason: `judge error ${res.status}: ${(await res.text()).slice(0, 200)}` };
-    const answer = (await res.json()).answers?.[0];
-    if (answer?.type !== 'choice') return { label: 'unsure', reason: `judge gave no choice (${answer?.type})` };
-    const p = answer.probabilities?.find((x) => x.value === answer.choice)?.probability ?? answer.confidence ?? 0;
-    const shaky = answer.choice === 'safe' && p < SAFE_CONFIDENCE && action.type !== 'type'; // typing commits nothing by itself
-    const label = shaky ? 'unsure' : answer.choice;
-    return { label, reason: `${Math.round(p * 100)}% ${answer.choice}` };
+    return await (process.env.HANDBRAKE_JUDGE === 'chat' ? askChat : askDecisions)(img, action, target);
   } catch (err) {
     return { label: 'unsure', reason: `judge unreachable: ${err.message}` };
   }

@@ -44,3 +44,18 @@ test('judge fails closed and distrusts a shaky "safe"', async () => {
   globalThis.fetch = async () => { throw new Error('offline'); };
   assert.equal((await judge(png, {})).label, 'unsure');
 });
+
+test('chat judge reads one word from any OpenAI-compatible model', async () => {
+  process.env.HANDBRAKE_JUDGE = 'chat';
+  const say = (content) => { globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content } }] }) }); };
+  try {
+    say('delete');
+    assert.equal((await judge(Buffer.from(''), {})).label, 'delete');
+    say('Purchase.');
+    assert.equal((await judge(Buffer.from(''), {})).label, 'purchase');
+    say('I think this is fine');
+    assert.equal((await judge(Buffer.from(''), {})).label, 'unsure');
+  } finally {
+    delete process.env.HANDBRAKE_JUDGE;
+  }
+});
