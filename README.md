@@ -118,7 +118,7 @@ claude mcp add handbrake -- node /absolute/path/to/handbrake/mcp.js
 
 Or open the `handbrake` folder in Claude Code: the included `.mcp.json` registers it. Then ask it to *"use the handbrake tools to open http://127.0.0.1:8787/console.html and …"*.
 
-Claude Code support for MCP prompts hasn't been verified with Handbrake yet. If you try it, please open an issue with what you saw.
+Tested with Claude Code 2.1.296 in headless mode (`claude -p`): it uses Handbrake's tools, and with no one to answer, the risky click is blocked and Claude stops. Claude Code supports MCP prompts (elicitation) since 2.1.76; the interactive prompt itself hasn't been checked yet. If you try it, please open an issue with what you saw.
 
 </details>
 
