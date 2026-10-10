@@ -33,7 +33,7 @@ async function approve({ label, reason, target }) {
   try {
     const res = await server.server.elicitInput({
       message: `HANDBRAKE · ${label.toUpperCase()} (${reason})\nThe agent wants to: ${target}\nAllow it?`,
-      requestedSchema: { type: 'object', properties: { allow: { type: 'boolean', title: 'Allow this action' } }, required: ['allow'] },
+      requestedSchema: { type: 'object', properties: { allow: { type: 'boolean', title: 'Allow this action', default: false } } }, // unticked = no
     });
     return res.action === 'accept' && res.content?.allow === true;
   } catch {
