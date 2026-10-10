@@ -1,22 +1,24 @@
 # Handbrake
 
-**The confirmation computer-use agents can't skip.**
+**You approve agent actions on autopilot. Handbrake catches the one that matters.**
 
-Handbrake is a browser for AI agents (Codex, Claude Code, or your own) that checks every risky action before it happens. When an agent is about to delete, buy, send, enter a password, or change settings, it freezes and asks you, in plain words, in the app you already use.
+You've clicked "Allow" a hundred times today without reading. Or you run your agent in auto mode and don't see the prompts at all. Handbrake is a browser for AI agents (Codex, Claude Code, or your own) that stays silent for the steps that don't matter and stops you, in plain words, on the one that does: a delete, a purchase, a message sent, a password typed, a setting changed.
 
 Open source (MIT). Runs on your machine. Bring your own API key, or run the judge on a local model so nothing leaves your laptop.
 
 ---
 
-## Why
+## Built for autopilot
 
-Agents have already wiped production databases. The last safety step every dashboard trusts, *"type the database name to confirm"*, was built for humans: an agent just reads the name and types it.
+**1. Pressing Continue without reading means no.** The "Allow" box starts unticked. Hit Continue (or ⌘↵) out of habit and the action is blocked. Saying yes takes a deliberate tick.
 
-And today's approval prompts don't help. This is what Codex asks before a click:
+**2. It only asks when it matters.** Scrolling, reading, and clicking into a text field run silently. In the demo flow below, the agent takes six actions and Handbrake asks twice: at the two Delete clicks.
+
+**3. It reads the screen, not the command.** This is what Codex asks before a click:
 
 ![Codex's default prompt: Allow tool "click"? x 781, y 236](docs/codex-default-prompt.png)
 
-Is that the Delete button on production? You can't tell. Handbrake asks this instead:
+Is that the Delete button on production? Neither you nor an auto-approve rule can tell from `click(781, 236)`. Handbrake looks at what's there and asks this instead:
 
 ```
 HANDBRAKE · DELETE (97% delete)
@@ -26,10 +28,15 @@ Allow it?   [ ] Allow this action                                  [Continue]
 
 **Today's prompts show coordinates. Handbrake shows consequences.**
 
+## Why it matters
+
+Agents have already wiped production databases. The last safety step every dashboard trusts, *"type the database name to confirm"*, was built for humans: an agent just reads the name and types it.
+
+Good agents usually ask before something drastic when you're watching. Handbrake is for when you're not: auto mode, overnight runs, "don't ask me, just finish."
+
 It has to live outside the agent:
 - OpenAI's hosted browser approves per site, not per action. Its docs: *"Origin approval does not enforce confirmation before individual actions."*
 - A "confirm with the user" tool only works if the agent decides to call it.
-- Agents usually ask when you're watching. Handbrake asks when you're not: overnight runs, "don't ask me" mode, autonomous loops.
 
 ## How it works
 
@@ -235,7 +242,8 @@ All in `.env` (see `.env.example`):
 - **A second layer, not a guarantee.** The judge can be wrong.
 - **It only guards the Handbrake browser.** An agent with other browser tools, a shell, or API access can go around it. Give the agent Handbrake as its only browser for the risky work.
 - **Screenshots go to the judge you choose.** Use a local model if that matters.
-- **Full-access modes are untested.** Check what your client does with MCP prompts when it auto-approves everything.
+- **It can't help if your client answers its prompts for you.** Full-access / auto-approve modes are untested; check what your client does with MCP prompts in that mode before relying on it.
+- **Ticking without reading defeats it.** Handbrake makes "yes" deliberate, not impossible.
 
 ## License
 
