@@ -46,7 +46,7 @@ export async function describeTarget(page, action) {
     if (!hit || hit === document.body) return type === 'type' ? `typing "${squash(text, 40)}"` : 'nothing in particular';
     const el = hit.closest('a, button, input, select, textarea, [role=button], [onclick]') ?? hit;
     const name = squash(el.innerText || el.value || el.placeholder || el.getAttribute('aria-label'), 60);
-    const where = squash(el.closest('tr, li, form, dialog, [role=dialog], .modal, .card')?.innerText, 120);
+    const where = squash(el.closest('tr, li, form, dialog, [role=dialog], .modal, .card')?.innerText.replace(el.innerText ?? '', ''), 120);
     const what = type === 'type' ? `typing "${squash(text, 40)}" into ${el.tagName.toLowerCase()} "${name}"` : `${type} on ${el.tagName.toLowerCase()} "${name}"`;
     return where && where !== name ? `${what} in "${where}"` : what;
   }, { x: action.x, y: action.y, type: action.type, text: action.text });
