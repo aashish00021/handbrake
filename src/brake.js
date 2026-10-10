@@ -1,9 +1,15 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import OpenAI from 'openai';
 
-// What a gated action can do. "safe" covers everything harmless.
-export const LABELS = ['safe', 'purchase', 'delete', 'send', 'credentials', 'settings'];
+// What a gated action can do, and how the judge tells them apart.
+export const CHOICES = {
+  safe: 'None of the others: reading, navigating, searching, opening menus, filling harmless fields, cancelling.',
+  purchase: 'Spends money or places an order.',
+  delete: 'Permanently removes data, a database, a resource or an account, or confirms such a removal.',
+  send: 'Sends, posts or publishes something to other people.',
+  credentials: 'Enters or submits a password, card number, API key, token or other secret.',
+  settings: 'Changes account, security, billing or permission settings.',
+};
 
 export const DEFAULT_POLICY = {
   safe: 'allow',
@@ -26,13 +32,11 @@ export function verdictFor(label, policy = DEFAULT_POLICY) {
 }
 
 const QUESTION =
-  'A browser agent is about to act on this page. The red ring marks where it will click; ' +
-  'a red outline marks the field it will type into or submit. ' +
-  'What happens if the action goes ahead? ' +
-  'purchase = spends money or places an order; delete = permanently removes data, a resource or an account; ' +
-  'send = sends, posts or publishes something to other people; credentials = enters or submits a password, ' +
-  'card number, token or secret; settings = changes account, security, billing or permission settings; ' +
-  'safe = none of these.';
+  'A browser agent is about to act on this page. A red ring marks where it will click; ' +
+  'a red outline marks the field it will type into or submit. What happens if the action goes ahead?';
+
+// Below this, a "safe" answer still goes to a human.
+const SAFE_CONFIDENCE = 0.8;
 
 // Draw the marker on the live page, screenshot, remove it.
 export async function markedScreenshot(page, action) {
@@ -57,35 +61,38 @@ export async function markedScreenshot(page, action) {
   return png;
 }
 
-let client;
-
-// ponytail: judge via Responses + strict enum; swap to the Decisions API once its request shape is confirmed
-async function judge(png, action) {
-  client ??= new OpenAI();
-  const res = await client.responses.create({
-    model: process.env.HANDBRAKE_JUDGE_MODEL ?? 'gpt-6.1-sol',
-    input: [{
-      role: 'user',
-      content: [
-        { type: 'input_text', text: `${QUESTION}\nPending action: ${JSON.stringify(action)}` },
-        { type: 'input_image', image_url: `data:image/png;base64,${png.toString('base64')}` },
-      ],
-    }],
-    text: {
-      format: {
-        type: 'json_schema',
-        name: 'verdict',
-        strict: true,
-        schema: {
-          type: 'object',
-          properties: { label: { type: 'string', enum: LABELS }, reason: { type: 'string' } },
-          required: ['label', 'reason'],
-          additionalProperties: false,
-        },
-      },
-    },
-  });
-  return JSON.parse(res.output_text);
+// Fails closed: any error becomes an "unsure", which asks a human.
+export async function judge(png, action) {
+  try {
+    const res = await fetch('https://api.openai.com/v1/decisions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-6-luna',
+        input: [{
+          role: 'user',
+          content: [
+            { type: 'input_text', text: `Pending action: ${JSON.stringify(action)}` },
+            { type: 'input_image', image_url: `data:image/png;base64,${png.toString('base64')}` },
+          ],
+        }],
+        questions: [{
+          type: 'choice',
+          name: 'outcome',
+          instructions: QUESTION,
+          choices: Object.entries(CHOICES).map(([value, description]) => ({ value, description })),
+        }],
+      }),
+    });
+    if (!res.ok) return { label: 'unsure', reason: `judge error ${res.status}: ${(await res.text()).slice(0, 200)}` };
+    const answer = (await res.json()).answers?.[0];
+    if (answer?.type !== 'choice') return { label: 'unsure', reason: `judge gave no choice (${answer?.type})` };
+    const p = answer.probabilities?.find((x) => x.value === answer.choice)?.probability ?? answer.confidence ?? 0;
+    const label = answer.choice === 'safe' && p < SAFE_CONFIDENCE ? 'unsure' : answer.choice;
+    return { label, reason: `${Math.round(p * 100)}% ${answer.choice}` };
+  } catch (err) {
+    return { label: 'unsure', reason: `judge unreachable: ${err.message}` };
+  }
 }
 
 // Returns true if the action may run. Every checked action is logged with its screenshot.

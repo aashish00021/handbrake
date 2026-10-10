@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { toPlaywrightKeys } from './src/agent.js';
-import { DEFAULT_POLICY, needsCheck, verdictFor } from './src/brake.js';
+import { DEFAULT_POLICY, judge, needsCheck, verdictFor } from './src/brake.js';
 
 test('only actions that can change something are checked', () => {
   assert.equal(needsCheck({ type: 'click', x: 1, y: 1 }), true);
@@ -23,4 +23,23 @@ test('model key names map to Playwright', () => {
   assert.equal(toPlaywrightKeys(['CTRL', 'A']), 'Control+A');
   assert.equal(toPlaywrightKeys(['ENTER']), 'Enter');
   assert.equal(toPlaywrightKeys(['a']), 'a');
+});
+
+test('judge fails closed and distrusts a shaky "safe"', async () => {
+  const reply = (body, ok = true) => { globalThis.fetch = async () => ({ ok, status: ok ? 200 : 401, json: async () => body, text: async () => 'nope' }); };
+  const png = Buffer.from('');
+  const choice = (choice, probability) => ({ answers: [{ type: 'choice', choice, probabilities: [{ value: choice, probability }] }] });
+
+  reply(choice('delete', 0.97));
+  assert.equal((await judge(png, {})).label, 'delete');
+  reply(choice('safe', 0.95));
+  assert.equal((await judge(png, {})).label, 'safe');
+  reply(choice('safe', 0.6));
+  assert.equal((await judge(png, {})).label, 'unsure');
+  reply({}, false);
+  assert.equal((await judge(png, {})).label, 'unsure');
+  reply({ answers: [{ type: 'refusal' }] });
+  assert.equal((await judge(png, {})).label, 'unsure');
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  assert.equal((await judge(png, {})).label, 'unsure');
 });
