@@ -25,7 +25,10 @@ echo "OPENAI_API_KEY=sk-..." > .env     # read by mcp.js
 [mcp_servers.handbrake]
 command = "node"
 args = ["/absolute/path/to/handbrake/mcp.js"]
+default_tools_approval_mode = "approve"  # Handbrake asks for the risky ones itself
 ```
+
+Codex prefers its built-in browser, so name the tools in the prompt (`mcp__handbrake__open`, ...) or turn the built-in browser plugin off for the session.
 
 **Claude Code:** open this folder (`.mcp.json` is included), or `claude mcp add handbrake -- node /absolute/path/to/handbrake/mcp.js`.
 
@@ -34,6 +37,7 @@ Then ask the agent to use the handbrake browser: *"Use the handbrake tools to op
 ## Run its own agent
 
 ```bash
+npm run demo   # serves demo/console.html at http://127.0.0.1:8787/console.html
 node --env-file=.env cli.js "Free up disk space: delete the database we don't need" --url http://localhost:3000
 ```
 
