@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "handbrake": { "command": "node", "args": ["mcp.js"] }
+  }
+}

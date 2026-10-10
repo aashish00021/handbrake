@@ -10,11 +10,30 @@ Why it has to live outside the agent:
 - Hosted browser approval is per site. OpenAI's docs: *"Origin approval does not enforce confirmation before individual actions."*
 - A "confirm with the user" tool only works if the agent decides to call it.
 
-## Run
+## Use it from Codex or Claude Code
+
+Handbrake is an MCP server: a browser whose risky actions ask you first, in the app's own approval prompt. No answer, a "no", or a client that can't ask all block.
 
 ```bash
 npm install && npx playwright install chromium
-echo "OPENAI_API_KEY=sk-..." > .env
+echo "OPENAI_API_KEY=sk-..." > .env     # read by mcp.js
+```
+
+**Codex** (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.handbrake]
+command = "node"
+args = ["/absolute/path/to/handbrake/mcp.js"]
+```
+
+**Claude Code:** open this folder (`.mcp.json` is included), or `claude mcp add handbrake -- node /absolute/path/to/handbrake/mcp.js`.
+
+Then ask the agent to use the handbrake browser: *"Use the handbrake tools to open http://... and ..."*. Tools: `open`, `look`, `click`, `type`, `press`, `scroll`. Turn off other browser tools if you want Handbrake to be the only way in.
+
+## Run its own agent
+
+```bash
 node --env-file=.env cli.js "Free up disk space: delete the database we don't need" --url http://localhost:3000
 ```
 
