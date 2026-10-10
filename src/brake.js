@@ -117,13 +117,18 @@ export async function brake(page, action, { policy = DEFAULT_POLICY, approve, lo
   const { label, reason } = await judge(png, action, target);
   const ms = Date.now() - started;
   let verdict = verdictFor(label, policy);
-  if (verdict === 'ask') verdict = (await approve({ action, label, reason, target, png })) ? 'approved' : 'denied';
+  let waitedMs = 0; // how long the human took: ~0 means nobody actually answered
+  if (verdict === 'ask') {
+    const asked = Date.now();
+    verdict = (await approve({ action, label, reason, target, png })) ? 'approved' : 'denied';
+    waitedMs = Date.now() - asked;
+  }
 
   await mkdir(logDir, { recursive: true });
   const shot = `${started}.jpg`;
   await writeFile(join(logDir, shot), png);
   await appendFile(join(logDir, 'log.jsonl'),
-    JSON.stringify({ at: new Date(started).toISOString(), url: page.url(), action, target, label, reason, verdict, ms, shot }) + '\n');
+    JSON.stringify({ at: new Date(started).toISOString(), url: page.url(), action, target, label, reason, verdict, ms, waitedMs, shot }) + '\n');
 
   return verdict === 'allow' || verdict === 'approved';
 }
